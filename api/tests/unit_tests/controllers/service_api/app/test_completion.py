@@ -31,15 +31,18 @@ from controllers.service_api.app.completion import (
     CompletionStopApi,
 )
 from controllers.service_api.app.error import (
+    AgentNotPublishedError,
     AppUnavailableError,
     ConversationCompletedError,
     NotChatAppError,
 )
+from core.app.apps.agent_app.errors import AgentAppNotPublishedError
 from core.errors.error import QuotaExceededError
 from graphon.model_runtime.errors.invoke import InvokeError
 from models.model import App, AppMode, EndUser
 from services.app_generate_service import AppGenerateService
 from services.app_task_service import AppTaskService
+from services.conversation_service import ConversationService
 from services.errors.app import IsDraftWorkflowError, WorkflowIdFormatError, WorkflowNotFoundError
 from services.errors.conversation import ConversationNotExistsError
 from services.errors.llm import InvokeRateLimitError
@@ -250,7 +253,12 @@ class TestAppGenerateService:
         mock_generate.return_value = expected
 
         result = AppGenerateService.generate(
-            app_model=Mock(spec=App), user=Mock(spec=EndUser), args={"query": "Hi"}, invoke_from=Mock(), streaming=False
+            app_model=Mock(spec=App),
+            user=Mock(spec=EndUser),
+            args={"query": "Hi"},
+            invoke_from=Mock(),
+            session=Mock(),
+            streaming=False,
         )
 
         assert result == expected
@@ -262,7 +270,12 @@ class TestAppGenerateService:
 
         with pytest.raises(services.errors.conversation.ConversationNotExistsError):
             AppGenerateService.generate(
-                app_model=Mock(spec=App), user=Mock(spec=EndUser), args={}, invoke_from=Mock(), streaming=False
+                app_model=Mock(spec=App),
+                user=Mock(spec=EndUser),
+                args={},
+                invoke_from=Mock(),
+                session=Mock(),
+                streaming=False,
             )
 
     @patch.object(AppGenerateService, "generate")
@@ -272,7 +285,12 @@ class TestAppGenerateService:
 
         with pytest.raises(QuotaExceededError):
             AppGenerateService.generate(
-                app_model=Mock(spec=App), user=Mock(spec=EndUser), args={}, invoke_from=Mock(), streaming=False
+                app_model=Mock(spec=App),
+                user=Mock(spec=EndUser),
+                args={},
+                invoke_from=Mock(),
+                session=Mock(),
+                streaming=False,
             )
 
     @patch.object(AppGenerateService, "generate")
@@ -282,7 +300,12 @@ class TestAppGenerateService:
 
         with pytest.raises(InvokeError):
             AppGenerateService.generate(
-                app_model=Mock(spec=App), user=Mock(spec=EndUser), args={}, invoke_from=Mock(), streaming=False
+                app_model=Mock(spec=App),
+                user=Mock(spec=EndUser),
+                args={},
+                invoke_from=Mock(),
+                session=Mock(),
+                streaming=False,
             )
 
 
@@ -515,6 +538,51 @@ class TestChatApiController:
         with app.test_request_context("/chat-messages", method="POST", json={"inputs": {}, "query": "hi"}):
             with pytest.raises(BadRequest):
                 handler(api, session=Mock(), app_model=app_model, end_user=end_user)
+
+    def test_agent_not_published_error_mapped(self, app: Flask, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            AppGenerateService,
+            "generate",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(AgentAppNotPublishedError("Agent has not been published")),
+        )
+
+        api = ChatApi()
+        handler = unwrap(api.post)
+        app_model = SimpleNamespace(mode=AppMode.AGENT.value)
+        end_user = SimpleNamespace()
+
+        with app.test_request_context("/chat-messages", method="POST", json={"inputs": {}, "query": "hi"}):
+            with pytest.raises(AgentNotPublishedError):
+                handler(api, session=Mock(), app_model=app_model, end_user=end_user)
+
+    def test_invalid_conversation_id_fails_fast_as_not_found(self, app: Flask, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A well-formed but nonexistent conversation_id must fail fast as 404, before the
+        # streaming generator is created. Previously the lookup only ran inside the generator,
+        # so an invalid id surfaced as a hang instead of a clean error.
+        monkeypatch.setattr(
+            ConversationService,
+            "get_conversation",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(ConversationNotExistsError()),
+        )
+
+        generate_mock = Mock(return_value={"text": "unused"})
+        monkeypatch.setattr(AppGenerateService, "generate", generate_mock)
+
+        api = ChatApi()
+        handler = unwrap(api.post)
+        app_model = SimpleNamespace(mode=AppMode.CHAT.value, id="app-1")
+        end_user = SimpleNamespace()
+
+        with app.test_request_context(
+            "/chat-messages",
+            method="POST",
+            json={"inputs": {}, "query": "hi", "conversation_id": str(uuid.uuid4())},
+        ):
+            with pytest.raises(NotFound):
+                handler(api, session=Mock(), app_model=app_model, end_user=end_user)
+
+        # The lookup must run before generation, so the generator is never started.
+        generate_mock.assert_not_called()
 
 
 class TestChatStopApiController:

@@ -2,7 +2,6 @@
 
 import { oc } from '@orpc/contract'
 import * as z from 'zod'
-
 import {
   zDeleteAgentByAgentIdApiKeysByApiKeyIdPath,
   zDeleteAgentByAgentIdApiKeysByApiKeyIdResponse,
@@ -964,7 +963,7 @@ export const drive = {
  */
 export const post12 = oc
   .route({
-    description: 'Update an Agent App\'s presentation features (opener, follow-up, citations, ...)',
+    description: "Update an Agent App's presentation features (opener, follow-up, citations, ...)",
     inputStructure: 'detailed',
     method: 'POST',
     operationId: 'postAgentByAgentIdFeatures',
@@ -1139,7 +1138,7 @@ export const publish = {
  */
 export const get28 = oc
   .route({
-    description: 'List workflow apps that reference this Agent App\'s bound Agent (read-only)',
+    description: "List workflow apps that reference this Agent App's bound Agent (read-only)",
     inputStructure: 'detailed',
     method: 'GET',
     operationId: 'getAgentByAgentIdReferencingWorkflows',
@@ -1178,11 +1177,11 @@ export const read = {
 }
 
 /**
- * Upload one Agent App sandbox file as a Dify ToolFile mapping
+ * Upload one Agent App sandbox file and return a signed download URL
  */
 export const post16 = oc
   .route({
-    description: 'Upload one Agent App sandbox file as a Dify ToolFile mapping',
+    description: 'Upload one Agent App sandbox file and return a signed download URL',
     inputStructure: 'detailed',
     method: 'POST',
     operationId: 'postAgentByAgentIdSandboxFilesUpload',

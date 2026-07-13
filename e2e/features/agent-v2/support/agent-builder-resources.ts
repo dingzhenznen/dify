@@ -11,7 +11,6 @@ export const agentBuilderPreseededResources = {
   fullConfigAgent: 'E2E New Agent Builder Full Config',
   toolStatesAgent: 'E2E New Agent Builder Tool States',
   oauthToolAgent: 'E2E Agent With OAuth Tool',
-  fileTreeAgent: 'E2E Agent With File Tree',
   dualRetrievalAgent: 'E2E Agent With Dual Retrieval',
   publishedWebAppAgent: 'E2E Agent Published Web App',
   backendApiEnabledAgent: 'E2E Agent Backend API Enabled',
@@ -26,7 +25,8 @@ export const agentBuilderFixedInputs = {
   missingToolSearch: 'E2E_NOT_EXIST_TOOL',
   missingToolSearchWithSuffix: 'E2E_NOT_EXIST_TOOL_12345',
   customKnowledgeQuery: 'Dify Agent E2E knowledge marker',
-  knowledgeRuntimeQuery: 'Use the connected knowledge source to find the Dify Agent E2E knowledge marker.',
+  knowledgeRuntimeQuery:
+    'Use the connected knowledge source to find the Dify Agent E2E knowledge marker.',
   envPlainKey: 'E2E_AGENT_FLAG',
   envPlainValue: 'enabled',
   envModeKey: 'E2E_AGENT_MODE',
